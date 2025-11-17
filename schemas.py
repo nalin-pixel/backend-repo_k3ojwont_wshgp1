@@ -1,48 +1,74 @@
 """
-Database Schemas
+Takuezy Housing - Database Schemas
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a MongoDB collection.
+Collection name is the lowercase of the class name (e.g., User -> "user").
 """
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, EmailStr
 
-from pydantic import BaseModel, Field
-from typing import Optional
+# Shared
+class Location(BaseModel):
+    lat: float = Field(..., description="Latitude")
+    lng: float = Field(..., description="Longitude")
+    address: Optional[str] = Field(None, description="Human-readable address")
 
-# Example schemas (replace with your own):
-
+# Users
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    full_name: str
+    role: Literal["tenant", "landlord", "lodge_owner", "admin"]
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    national_id: str = Field(..., description="Zimbabwe National ID number")
+    password_hash: str
+    is_approved: bool = False
+    id_verified: bool = False
 
-class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+# Listings
+class Listing(BaseModel):
+    owner_id: str = Field(..., description="Owner user _id as string")
+    title: str
+    description: Optional[str] = None
+    price: float = Field(..., ge=0)
+    pricing_type: Literal["monthly", "daily", "hourly"] = "monthly"
+    property_type: Literal["house", "room", "apartment", "lodge_room", "other"] = "room"
+    facilities: List[str] = []
+    media_urls: List[str] = []
+    location: Location
+    is_available: bool = True
 
-# Add your own schemas here:
-# --------------------------------------------------
+# Applications
+class Application(BaseModel):
+    listing_id: str
+    tenant_id: str
+    message: Optional[str] = None
+    national_id: str
+    status: Literal["pending", "approved", "rejected"] = "pending"
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+# Payments
+class Payment(BaseModel):
+    listing_id: str
+    tenant_id: str
+    owner_id: str
+    amount: float = Field(..., ge=0)
+    method: Literal["ecocash", "paynow"]
+    platform_fee: float = 0.0
+    owner_amount: float = 0.0
+    status: Literal["initiated", "successful", "failed"] = "initiated"
+    receipt_id: Optional[str] = None
+
+class Receipt(BaseModel):
+    payment_id: str
+    total: float
+    owner_amount: float
+    platform_fee: float
+    payee_phone: Optional[str] = None
+    reference: str
+
+# Notifications (optional for future)
+class Notification(BaseModel):
+    user_id: str
+    type: str
+    title: str
+    body: str
+    read: bool = False
